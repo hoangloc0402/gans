@@ -75,13 +75,10 @@ class Generator(nn.Module):
             nn.Tanh()
             # (NUM_OUTPUT_CHANNEL) x 64 x 64
         )
-        self.init_weights()
+        self.apply(weights_init)
 
     def forward(self, x):
         return self.main(x)
-
-    def init_weights(self):
-        self.apply(weights_init)
 
 
 class Discriminator(nn.Module):
@@ -90,24 +87,30 @@ class Discriminator(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.main = nn.Sequential(
+        self.block_1 = nn.Sequential(
             # (NUM_INPUT_CHANNEL) x 64 x 64
             nn.Conv2d(in_channels = self.NUM_INPUT_CHANNEL,
                       out_channels = self.FEATURE_MAP_SIZE,
                       kernel_size = 4, stride = 2, padding = 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
+        )
+        self.block_2 = nn.Sequential(
             # (FEATURE_MAP_SIZE) x 32 x 32
             nn.Conv2d(in_channels = self.FEATURE_MAP_SIZE,
                       out_channels = self.FEATURE_MAP_SIZE * 2,
                       kernel_size = 4, stride = 2, padding = 1, bias=False),
             nn.BatchNorm2d(self.FEATURE_MAP_SIZE * 2),
             nn.LeakyReLU(0.2, inplace=True),
+        )
+        self.block_3 = nn.Sequential(
             # (FEATURE_MAP_SIZE*2) x 16 x 16
             nn.Conv2d(in_channels = self.FEATURE_MAP_SIZE * 2,
                       out_channels = self.FEATURE_MAP_SIZE * 4,
                       kernel_size = 4, stride = 2, padding = 1, bias=False),
             nn.BatchNorm2d(self.FEATURE_MAP_SIZE * 4),
             nn.LeakyReLU(0.2, inplace=True),
+        )
+        self.block_4 = nn.Sequential(
             # (FEATURE_MAP_SIZE*4) x 8 x 8'
             nn.Conv2d(in_channels = self.FEATURE_MAP_SIZE * 4,
                       out_channels = self.FEATURE_MAP_SIZE * 8,
@@ -115,18 +118,30 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(self.FEATURE_MAP_SIZE * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # (FEATURE_MAP_SIZE*8) x 4 x 4
+        )
+        self.block_final = nn.Sequential(
             nn.Conv2d(in_channels = self.FEATURE_MAP_SIZE * 8,
                       out_channels = 1,
                       kernel_size = 4, stride = 1, padding = 0, bias=False),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
-        self.init_weights()
-
-    def forward(self, x):
-        return self.main(x)
-
-    def init_weights(self):
+        self.intermediate_blocks = [self.block_1, self.block_2, self.block_3, self.block_4]
         self.apply(weights_init)
+
+    def forward(self, x, feature_matching='none'):
+        intermediate_features = list()
+        output = x
+        for block in self.intermediate_blocks:
+            output = block(output)
+            intermediate_features.append(output)
+
+        if feature_matching == 'none':
+            output = self.block_final(output)
+            return output
+        elif feature_matching == 'last':
+            return output
+        elif feature_matching == 'all':
+            return intermediate_features
 
 
 def plot_losses(G_losses, D_losses):
