@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torchvision.utils as vutils
 
 
-def get_data_loader(train, batch_size=128):
+def get_data_loader(train=True, batch_size=128):
     root = '/home/loc/data'
     dataset = MNIST(root,
                     train=train,
@@ -123,25 +123,36 @@ class Discriminator(nn.Module):
             nn.Conv2d(in_channels = self.FEATURE_MAP_SIZE * 8,
                       out_channels = 1,
                       kernel_size = 4, stride = 1, padding = 0, bias=False),
-            nn.Sigmoid(),
         )
+        self.sigmoid = nn.Sigmoid()
         self.intermediate_blocks = [self.block_1, self.block_2, self.block_3, self.block_4]
         self.apply(weights_init)
 
-    def forward(self, x, feature_matching='none'):
+    def forward(self, x, mode='sigmoid'):
         intermediate_features = list()
         output = x
         for block in self.intermediate_blocks:
             output = block(output)
             intermediate_features.append(output)
 
-        if feature_matching == 'none':
-            output = self.block_final(output)
-            return output
-        elif feature_matching == 'last':
-            return output
-        elif feature_matching == 'all':
+        if mode == 'all_intermediate_features':
             return intermediate_features
+
+        last_feature = intermediate_features[-1]
+
+        if mode == 'last_feature':
+            return last_feature
+
+        no_sigmoid = self.block_final(last_feature)
+
+        if mode == 'no_sigmoid':
+            return no_sigmoid
+
+        output = self.sigmoid(no_sigmoid)
+
+        if mode == 'sigmoid':
+            return output
+        assert False
 
 
 def plot_losses(G_losses, D_losses):
