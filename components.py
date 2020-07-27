@@ -165,13 +165,22 @@ def plot_losses(G_losses, D_losses):
     plt.legend()
     plt.show()
 
+static_noise = torch.randn(30, Generator.INPUT_SIZE, 1, 1)
 
-def generate_images(generator, num_images=30):
+def generate_images(generator, num_images=30, new_noise=True, return_grid=False):
+    generator.eval()
     with torch.no_grad():
-        noise = torch.randn(num_images, generator.INPUT_SIZE, 1, 1,
-                            device=next(generator.parameters()).device)
+        device = next(generator.parameters()).device
+        if new_noise:
+            noise = torch.randn(num_images, generator.INPUT_SIZE, 1, 1,
+                                device=device)
+        else:
+            noise = static_noise.to(device)
         fake = generator(noise).detach().cpu()
         grid = vutils.make_grid(fake, nrow=10, padding=2, normalize=True)
+        generator.train()
+        if return_grid:
+            return grid
         plt.figure(figsize=(40, 7))
         plt.axis("off")
         plt.title("Generated Fake Images")
